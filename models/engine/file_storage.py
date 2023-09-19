@@ -1,64 +1,56 @@
 #!/usr/bin/python3
 """This module defines a class to manage file storage for hbnb clone"""
 import json
+# Import SQLAlchemy and other necessary modules
+from sqlalchemy import Column, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql import func
+import uuid
+from models import storage
 
+# Create Base as a declarative base
+Base = declarative_base()
 
-class FileStorage:
-    """This class manages storage of hbnb models in JSON format"""
-    __file_path = 'file.json'
-    __objects = {}
+class BaseModel:
+    """A base class for all hbnb models"""
+    # Define the class attributes for SQLAlchemy
+    id = Column(String(60), primary_key=True, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), nullable=False)
 
-    def all(self, cls=None):
-        """Returns a dictionary of models currently in storage, filtered by class"""
-        if cls is None:
-            return FileStorage.__objects
+    def __init__(self, *args, **kwargs):
+        """Instantiates a new model"""
+        if not kwargs:
+            self.id = str(uuid.uuid4())
+            self.created_at = self.updated_at = func.now()
+            storage.new(self)
         else:
-            filtered_objects = {}
-            for key, val in FileStorage.__objects.items():
-                if isinstance(val, cls):
-                    filtered_objects[key] = val
-            return filtered_objects
+            if 'updated_at' in kwargs:
+                kwargs['updated_at'] = datetime.strptime(kwargs['updated_at'],
+                                                         '%Y-%m-%dT%H:%M:%S.%f')
+            if 'created_at' in kwargs:
+                kwargs['created_at'] = datetime.strptime(kwargs['created_at'],
+                                                         '%Y-%m-%dT%H:%M:%S.%f')
+            if '__class__' in kwargs:
+                del kwargs['__class__']
+            self.__dict__.update(kwargs)
 
-    def new(self, obj):
-        """Adds new object to storage dictionary"""
-        key = obj.__class__.__name__ + '.' + obj.id
-        self.__objects[key] = obj
+    def __str__(self):
+        """Returns a string representation of the instance"""
+        cls = self.__class__.__name__
+        return '[{}] ({}) {}'.format(cls, self.id, self.__dict__)
 
     def save(self):
-        """Saves storage dictionary to file"""
-        with open(FileStorage.__file_path, 'w') as f:
-            temp = {}
-            for key, val in FileStorage.__objects.items():
-                temp[key] = val.to_dict()
-            json.dump(temp, f)
+        """Updates updated_at with the current time when the instance is changed"""
+        from models import storage
+        self.updated_at = func.now()
+        storage.new(self)
+        storage.save()
 
-    def reload(self):
-        """Loads storage dictionary from file"""
-        from models.base_model import BaseModel
-        from models.user import User
-        from models.place import Place
-        from models.state import State
-        from models.city import City
-        from models.amenity import Amenity
-        from models.review import Review
-
-        classes = {
-            'BaseModel': BaseModel, 'User': User, 'Place': Place,
-            'State': State, 'City': City, 'Amenity': Amenity,
-            'Review': Review
-        }
-        try:
-            temp = {}
-            with open(FileStorage.__file_path, 'r') as f:
-                temp = json.load(f)
-                for key, val in temp.items():
-                    self.__objects[key] = classes[val['__class__']](**val)
-        except FileNotFoundError:
-            pass
-
-    def delete(self, obj=None):
-        """Deletes obj from __objects if it's inside"""
-        if obj is not None:
-            key = obj.__class__.__name__ + '.' + obj.id
-            if key in self.__objects:
-                del self.__objects[key]
+    def to_dict(self):
+        """Convert instance into dict format"""
+        dictionary = dict(self.__dict__)
+        dictionary['__class__'] = self.__class__.__name__
+        dictionary['created_at'] = self.created_at.strftime('%Y-%m-%dT%H:%M:%S.%f')
+        dictionary['updated_at'] = self.updated_at.strftime('%Y-%m-%dT%H:%M:%S.%f')
+        return dictionary
