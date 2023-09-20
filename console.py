@@ -36,55 +36,44 @@ class HBNBCommand(cmd.Cmd):
             print('(hbnb)')
 
     def precmd(self, line):
-        """Reformat command line for advanced command syntax.
-
-        Usage: <class name>.<command>([<id> [<*args> or <**kwargs>]])
-        (Brackets denote optional fields in usage example.)
-        """
         _cmd = _cls = _id = _args = ''  # initialize line elements
 
-        # scan for general formating - i.e '.', '(', ')'
+        # Check if the line contains '.', '(', and ')'
         if not ('.' in line and '(' in line and ')' in line):
             return line
 
-        try:  # parse line left to right
-            pline = line[:]  # parsed line
+        try:
+            pline = line[:]  # Copy the line for parsing
 
-            # isolate <class name>
+            # Isolate <class name>
             _cls = pline[:pline.find('.')]
 
-            # isolate and validate <command>
+            # Isolate and validate <command>
             _cmd = pline[pline.find('.') + 1:pline.find('(')]
             if _cmd not in HBNBCommand.dot_cmds:
-                raise Exception
+                raise Exception("Invalid command")
 
-            # if parantheses contain arguments, parse them
-            pline = pline[pline.find('(') + 1:pline.find(')')]
+            # Extract arguments within parentheses
+            pline = pline[pline.find('(') + 1:pline.find(')')].strip()
+
+            # Handle the case where arguments exist
             if pline:
-                # partition args: (<id>, [<delim>], [<*args>])
-                pline = pline.partition(', ')  # pline convert to tuple
+                # Check for *args or **kwargs (Avoid using eval)
+                if pline[0] == '{' and pline[-1] == '}':
+                    _args = pline
+                else:
+                    # Handle other types of arguments
+                    _args = pline
 
-                # isolate _id, stripping quotes
-                _id = pline[0].replace('\"', '')
-                # possible bug here:
-                # empty quotes register as empty _id when replaced
-
-                # if arguments exist beyond _id
-                pline = pline[2].strip()  # pline is now str
-                if pline:
-                    # check for *args or **kwargs
-                    if pline[0] is '{' and pline[-1] is'}'\
-                            and type(eval(pline)) is dict:
-                        _args = pline
-                    else:
-                        _args = pline.replace(',', '')
-                        # _args = _args.replace('\"', '')
+            # Construct the new line
             line = ' '.join([_cmd, _cls, _id, _args])
 
-        except Exception as mess:
-            pass
+        except Exception as e:
+            print(f"Error: {e}")
+            # You may want to log or handle the error differently
         finally:
             return line
+
 
     def postcmd(self, stop, line):
         """Prints if isatty is false"""
@@ -114,39 +103,38 @@ class HBNBCommand(cmd.Cmd):
         pass
 
     def do_create(self, args):
-    """ Create an object of any class with parameters """
-    if not args:
-        print("** class name missing **")
-        return
+        if not args:
+            print("** class name missing **")
+            return
 
-    arg_parts = args.split()
-    class_name = arg_parts[0]
+        arg_parts = args.split()
+        class_name = arg_parts[0]
 
-    if class_name not in HBNBCommand.classes:
-        print("** class doesn't exist **")
-        return
+        if class_name not in HBNBCommand.classes:
+            print("** class doesn't exist **")
+            return
 
-    # Check if parameters are provided
-    if len(arg_parts) < 2:
-        print("** missing parameters **")
-        return
+        # Check if parameters are provided
+        if len(arg_parts) < 2:
+            print("** missing parameters **")
+            return
 
-    # Parse the parameters
-    params = {}
-    for param in arg_parts[1:]:
-        try:
-            key, value = param.split('=')
-            key = key.replace('_', ' ')  # Replace underscores with spaces
-            value = value.strip('"')  # Remove double quotes if present
-            params[key] = value
-        except ValueError:
-            # Skip invalid parameters
-            pass
+        # Parse the parameters
+        params = {}
+        for param in arg_parts[1:]:
+            try:
+                key, value = param.split('=')
+                key = key.replace('_', ' ')  # Replace underscores with spaces
+                value = value.strip('"')  # Remove double quotes if present
+                params[key] = value
+            except ValueError:
+                # Skip invalid parameters
+                pass
 
-    new_instance = HBNBCommand.classes[class_name](**params)
-    storage.save()
-    print(new_instance.id)
-    storage.save()
+        new_instance = HBNBCommand.classes[class_name](**params)
+        storage.save()
+        print(new_instance.id)
+        storage.save()
 
     def help_create(self):
         """ Help information for the create method """
@@ -294,7 +282,7 @@ class HBNBCommand(cmd.Cmd):
                 args.append(v)
         else:  # isolate args
             args = args[2]
-            if args and args[0] is '\"':  # check for quoted arg
+            if args and args[0] == '\"':  # check for quoted arg
                 second_quote = args.find('\"', 1)
                 att_name = args[1:second_quote]
                 args = args[second_quote + 1:]
@@ -302,10 +290,10 @@ class HBNBCommand(cmd.Cmd):
             args = args.partition(' ')
 
             # if att_name was not quoted arg
-            if not att_name and args[0] is not ' ':
+            if not att_name and args[0] != ' ':
                 att_name = args[0]
             # check for quoted val arg
-            if args[2] and args[2][0] is '\"':
+            if args[2] and args[2][0] == '\"':
                 att_val = args[2][1:args[2].find('\"', 1)]
 
             # if att_val was not quoted arg
