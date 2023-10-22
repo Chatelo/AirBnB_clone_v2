@@ -45,6 +45,11 @@ class FileStorage:
                         self.all()[key] = classes[val['__class__']](**val)
         except FileNotFoundError:
             pass
+        
+    def close(self):
+        """Reload JSON objects
+        """
+        return self.reload()
 
     def delete(self, obj=None):
         if obj is not None:
